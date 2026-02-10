@@ -1,0 +1,56 @@
+{
+  "name": "latinexus/lx_auth",
+  "description": "Sistema de autenticación multi-tenancy con roles y permisos para PHP",
+  "type": "library",
+  "keywords": ["authentication", "multi-tenant", "acl", "roles", "permissions", "php"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Eric Larrea",
+      "email": "eric@latinex.us",
+      "homepage": "https://latinex.us"
+    }
+  ],
+  "require": {
+    "php": "^8.3",
+    "ext-json": "*",
+    "ext-openssl": "*",
+    "ext-pdo": "*",
+    "firebase/php-jwt": "^6.8",
+    "illuminate/database": "11.37.*",
+    "psr/container": "^2.0",
+    "psr/http-message": "^2.0",
+    "psr/http-server-handler": "^1.0",
+    "psr/http-server-middleware": "^1.0",
+    "psr/simple-cache": "^3.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.0",
+    "mockery/mockery": "^1.6",
+    "fakerphp/faker": "^1.23",
+    "phpstan/phpstan": "^1.10"
+  },
+  "autoload": {
+    "psr-4": {
+      "LxAuth\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "LxAuth\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test-coverage": "phpunit --coverage-html coverage",
+    "analyse": "phpstan analyse src --level=8"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "composer/package-versions-deprecated": true
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
