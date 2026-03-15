@@ -289,6 +289,34 @@ El sistema soporta diferentes drivers de base de datos. Actualmente incluye:
 3. **Base de Datos**: Configura una base de datos persistente para producción
 4. **Caching**: Considera Redis o Memcached para caching en producción
 
+---
+
+## 🔐 Notas sobre JWT (importante)
+
+LxAuth ahora usa `firebase/php-jwt` en su serie 7.x. Esta versión incluye validaciones de seguridad adicionales que pueden afectar a tokens existentes si la configuración no cumple los requisitos mínimos.
+
+- Requisito de longitud del secret (HMAC):
+  - `HS256` requiere al menos 256 bits (32 bytes)
+  - `HS384` requiere al menos 384 bits (48 bytes)
+  - `HS512` requiere al menos 512 bits (64 bytes)
+
+- Si tu `LX_AUTH_JWT_SECRET` es más corto que el mínimo requerido para el algoritmo configurado, la generación de tokens fallará con una excepción. Para evitarlo, asegúrate de usar secrets suficientemente largos.
+
+- Comando recomendado para generar un secret seguro (32 bytes hex):
+
+```bash
+php -r "echo bin2hex(random_bytes(32));"
+```
+
+- Sugerencia de despliegue/rotación:
+  - Considera soportar temporalmente una clave secundaria (`jwt.secret_secondary`) para permitir una rotación segura sin invalidar sesiones inmediatamente; valida primero con la primaria y, si falla, intenta la secundaria.
+  - Registra y renueva tokens firmados con la clave secundaria durante el período de transición.
+
+- Validaciones añadidas en LxAuth:
+  - `AuthManager` ahora valida la longitud del secret antes de llamar a la librería y sincroniza `JWT::$leeway` desde la configuración (`tokens.jwt.leeway`). Si el secret es insuficiente, se lanzará una excepción con mensaje claro.
+
+---
+
 ## 📄 Licencia
 
 MIT License - Ver archivo LICENSE para detalles.
