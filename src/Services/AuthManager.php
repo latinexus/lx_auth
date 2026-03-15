@@ -29,6 +29,12 @@ class AuthManager
     {
         $this->driver = $driver;
         $this->config = $config;
+
+        // Sincronizar leeway de JWT si está configurado
+        $jwtConfig = $this->config['tokens']['jwt'] ?? [];
+        if (isset($jwtConfig['leeway'])) {
+            JWT::$leeway = (int) $jwtConfig['leeway'];
+        }
     }
 
     // ========== MÉTODOS DE AUTENTICACIÓN ==========
@@ -310,6 +316,9 @@ class AuthManager
             throw new \RuntimeException('JWT secret no configurado');
         }
 
+        $alg = $jwtConfig['algorithm'] ?? 'HS256';
+        $this->ensureJwtSecretLength($jwtConfig['secret'], $alg);
+
         $payload = array_merge([
             'iss' => $_SERVER['HTTP_HOST'] ?? 'localhost',
             'aud' => $user->getTenantId(),
@@ -326,7 +335,7 @@ class AuthManager
             ],
         ], $claims);
 
-        return JWT::encode($payload, $jwtConfig['secret'], $jwtConfig['algorithm'] ?? 'HS256');
+        return JWT::encode($payload, $jwtConfig['secret'], $alg);
     }
 
     public function validateToken(string $token): ?UserInterface
@@ -337,10 +346,13 @@ class AuthManager
             throw new \RuntimeException('JWT secret no configurado');
         }
 
+        $alg = $jwtConfig['algorithm'] ?? 'HS256';
+        $this->ensureJwtSecretLength($jwtConfig['secret'], $alg);
+
         try {
             $decoded = JWT::decode(
                 $token,
-                new Key($jwtConfig['secret'], $jwtConfig['algorithm'] ?? 'HS256')
+                new Key($jwtConfig['secret'], $alg)
             );
 
             if (empty($decoded->sub) || empty($decoded->user->tenant_id)) {
@@ -365,6 +377,12 @@ class AuthManager
     {
         $jwtConfig = $this->config['tokens']['jwt'] ?? [];
 
+        $alg = $jwtConfig['algorithm'] ?? 'HS256';
+        if (empty($jwtConfig['secret'])) {
+            throw new \RuntimeException('JWT secret no configurado');
+        }
+        $this->ensureJwtSecretLength($jwtConfig['secret'], $alg);
+
         $payload = [
             'iss' => $_SERVER['HTTP_HOST'] ?? 'localhost',
             'aud' => $user->getTenantId(),
@@ -375,7 +393,27 @@ class AuthManager
             'type' => 'refresh',
         ];
 
-        return JWT::encode($payload, $jwtConfig['secret'], $jwtConfig['algorithm'] ?? 'HS256');
+        return JWT::encode($payload, $jwtConfig['secret'], $alg);
+    }
+
+    /**
+     * Ensure JWT secret length is sufficient for HS* algorithms.
+     */
+    private function ensureJwtSecretLength(string $secret, string $alg): void
+    {
+        if (str_starts_with($alg, 'HS')) {
+            $bits = (int) str_replace('HS', '', $alg);
+            $minBytes = (int) ceil($bits / 8);
+            if (strlen($secret) < $minBytes) {
+                throw new \RuntimeException(sprintf(
+                    'JWT secret too short for %s: need at least %d bytes (%d bits), current %d bytes',
+                    $alg,
+                    $minBytes,
+                    $bits,
+                    strlen($secret)
+                ));
+            }
+        }
     }
 
     // ========== THROTTLING ==========
