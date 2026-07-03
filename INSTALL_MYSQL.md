@@ -78,7 +78,6 @@ Deberías ver una salida similar a:
 ✅ LxAuth inicializado
 
 📝 Creando datos de prueba...
-✅ Tenant creado: Test Tenant MySQL
 ✅ Usuario creado: admin@mysql.test
 ✅ Rol creado: Administrator
 ✅ Permiso creado: Manage Users

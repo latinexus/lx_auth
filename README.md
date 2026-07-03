@@ -1,16 +1,18 @@
-# LxAuth - Sistema de Autenticación Multi-Tenancy
+# LxAuth - Sistema de Autenticación y Autorización
 
-Un sistema completo de autenticación y autorización multi-tenancy con roles y permisos para PHP.
+Librería PHP para autenticación, roles y permisos. Trabaja contra **una única base de datos por instancia**. Ideal para arquitecturas SaaS donde cada cliente (tenant) tiene su propia base de datos.
+
+> **Nota**: La resolución del tenant (cliente) y sus credenciales de conexión son **responsabilidad de la aplicación** que consume LX_AUTH. LX_AUTH recibe una conexión ya configurada y opera exclusivamente contra ella.
 
 ## 🚀 Características
 
-- ✅ **Multi-Tenancy**: Aislamiento completo de datos por tenant
 - ✅ **Roles Jerárquicos**: Sistema de roles con herencia de permisos
 - ✅ **Permisos Flexibles**: Soporte para wildcards (`users.*`, `admin:access`)
 - ✅ **Autenticación JWT**: Tokens seguros para APIs
 - ✅ **Middleware PSR-15**: Protección de rutas estándar
 - ✅ **Throttling**: Protección contra fuerza bruta
 - ✅ **Caching**: Mejora de rendimiento para roles y permisos
+- ✅ **Sesiones PHP**: Gestión nativa de sesiones con "remember me"
 - ✅ **Drivers Extensibles**: Soporte para múltiples bases de datos
 - ✅ **Contratos e Interfaces**: Testing fácil y flexibilidad
 
@@ -26,113 +28,59 @@ Un sistema completo de autenticación y autorización multi-tenancy con roles y 
 composer install
 ```
 
-## 🗄️ Base de Datos
+## 🗄️ Esquema de Base de Datos
 
-LxAuth soporta múltiples bases de datos. Para MySQL/MariaDB:
+Cada base de datos donde opere LX_AUTH debe tener las siguientes tablas:
 
-### Configuración MySQL/MariaDB
+| Tabla | Descripción |
+|---|---|
+| `users` | Usuarios del sistema |
+| `roles` | Roles jerárquicos |
+| `permissions` | Permisos con wildcards |
+| `role_user` | Relación usuarios-roles |
+| `permission_role` | Relación roles-permisos |
+| `permission_user` | Permisos directos a usuarios |
+| `persistences` | Sesiones persistentes |
 
-1. **Crear base de datos y usuario**:
+### Migraciones
+
 ```bash
-mysql -u root -p < setup_mysql.sql
+php migrate.php                    # SQLite (desarrollo/pruebas)
+php migrate_mysql.php              # MySQL/MariaDB
+php migrate_mysql.php --fresh      # Recrear tablas
+php migrate_mysql.php --rollback   # Revertir
 ```
-
-2. **Configurar variables de entorno**:
-```bash
-cp .env.example .env
-# Editar .env con tus credenciales MySQL/MariaDB
-```
-
-3. **Ejecutar migraciones**:
-```bash
-php migrate_mysql.php              # Crear todas las tablas
-php migrate_mysql.php --fresh      # Eliminar y recrear todo
-php migrate_mysql.php --rollback   # Revertir migraciones
-```
-
-4. **Probar la configuración**:
-```bash
-php test_mysql.php
-```
-
-### Variables de Entorno (.env)
-
-```env
-# MySQL/MariaDB
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=lx_auth
-DB_USERNAME=lx_auth_user
-DB_PASSWORD=lx_auth_password
-
-# LxAuth
-LX_AUTH_JWT_SECRET=your-super-secret-jwt-key-change-in-production
-LX_AUTH_LOG_CHANNEL=stack
-```
-
-### Estructura de Tablas
-
-- `tenants` - Información de tenants (UUID primary key)
-- `users` - Usuarios multi-tenancy
-- `roles` - Roles jerárquicos
-- `permissions` - Permisos con wildcards
-- `role_user` - Relación usuarios-roles
-- `permission_role` - Relación roles-permisos
-- `permission_user` - Permisos directos a usuarios
-- `persistences` - Sesiones persistentes
-
-### Optimizaciones MySQL/MariaDB
-
-- **utf8mb4** para soporte completo de Unicode
-- **InnoDB** con foreign keys y CASCADE
-- **Índices optimizados** para rendimiento
-- **UUID** para tenants (distribución global)
-- **IPv6 compatible** en persistences
 
 ## 🔧 Configuración Básica
 
 ```php
 use LxAuth\LxAuth;
+use LxAuth\Drivers\Database\EloquentDriver;
 use Illuminate\Database\Capsule\Manager as Capsule;
 
-// Configurar base de datos MySQL/MariaDB
+// 1. Tu app resuelve el tenant y configura la conexión a su BD
 $capsule = new Capsule;
 $capsule->addConnection([
-    'driver' => 'mysql',
-    'host' => $_ENV['DB_HOST'] ?? '127.0.0.1',
-    'port' => $_ENV['DB_PORT'] ?? '3306',
-    'database' => $_ENV['DB_DATABASE'] ?? 'lx_auth',
-    'username' => $_ENV['DB_USERNAME'] ?? 'root',
-    'password' => $_ENV['DB_PASSWORD'] ?? '',
-    'charset' => 'utf8mb4',
+    'driver'   => 'mysql',
+    'host'     => '...',
+    'database' => E_DB_NAM,    // 'cargo_prueba'
+    'username' => E_DB_USR,    // 'cargo_prueba_usr'
+    'password' => E_DB_PWD,
+    'charset'  => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
-    'engine' => 'InnoDB',
 ]);
+$capsule->setAsGlobal();
+$capsule->bootEloquent();
 
-// Establecer driver para LxAuth
-LxAuth\Drivers\Database\EloquentDriver::setCapsule($capsule);
+// 2. Pasar la instancia de Capsule a LX_AUTH
+EloquentDriver::setCapsule($capsule);
 
-// Inicializar LxAuth
+// 3. Inicializar LX_AUTH
 $auth = LxAuth::getInstance([
-    'auth' => [
-        'password_hash' => 'bcrypt',
-        'throttling' => [
-            'enabled' => true,
-            'max_attempts' => 5,
-            'lockout_time' => 300,
+    'tokens' => [
+        'jwt' => [
+            'secret' => 'tu-clave-secreta',
         ],
-    ],
-    'tenancy' => [
-        'resolver' => 'subdomain',
-    ],
-    'roles' => [
-        'hierarchical' => true,
-        'cache_enabled' => true,
-    ],
-    'permissions' => [
-        'wildcard_enabled' => true,
-        'cache_enabled' => true,
     ],
 ]);
 ```
@@ -146,7 +94,7 @@ $auth = LxAuth::getInstance([
 $user = $auth->authenticate([
     'email' => 'admin@example.com',
     'password' => 'password123'
-], 'tenant-1');
+]);
 
 // Registrar nuevo usuario
 $user = $auth->register([
@@ -154,7 +102,18 @@ $user = $auth->register([
     'password' => 'password123',
     'first_name' => 'John',
     'last_name' => 'Doe'
-], 'tenant-1');
+]);
+
+// Iniciar sesión (PHP session)
+$auth->login($user, remember: true);
+
+// Verificar sesión activa
+if ($auth->check()) {
+    $user = $auth->user();
+}
+
+// Cerrar sesión
+$auth->logout();
 
 // Crear token JWT
 $token = $auth->createToken($user, 'api');
@@ -188,16 +147,14 @@ if ($auth->can('users.*')) {
 }
 ```
 
-### Multi-Tenancy
+### Middleware PSR-15
 
 ```php
-// Establecer tenant actual
-$auth->setTenant('tenant-1');
-
-// Obtener tenant actual
-$tenantId = $auth->tenant();
-
-// Resolver tenant automáticamente (subdominio, header, etc.)
+// Proteger rutas
+$app->add($auth->middleware());                          // Auth requerido
+$app->add($auth->permissionMiddleware('users.create'));  // Permiso específico
+$app->add($auth->roleMiddleware('admin'));               // Rol específico
+```
 $tenantId = $auth->getTenantResolver()->resolve();
 ```
 
