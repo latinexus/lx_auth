@@ -50,18 +50,17 @@ class PermissionManager
             throw new PermissionException("No se puede modificar un permiso del sistema");
         }
 
-        $permissionModel = $this->driver->findPermissionBySlug($permission, $user->getTenantId());
+        $permissionModel = $this->driver->findPermissionBySlug($permission);
 
         if (!$permissionModel) {
             $permissionModel = $this->driver->createPermission([
-                'tenant_id' => $user->getTenantId(),
                 'slug' => $permission,
                 'name' => $this->slugToName($permission),
                 'is_wildcard' => $this->isWildcard($permission),
             ]);
         }
 
-        $user->permissions()->syncWithoutDetaching([
+        $user->userPermissions()->syncWithoutDetaching([
             $permissionModel->getId() => ['grant' => $grant]
         ]);
 
@@ -102,16 +101,10 @@ class PermissionManager
             return true;
         }
 
-        $delimiters = $this->config['wildcard_delimiters'] ?? ['.', ':'];
-        $regexDelimiters = implode('', array_map('preg_quote', $delimiters));
-
+        // Escapar caracteres especiales de regex
         $regexPattern = preg_quote($pattern, '/');
-        $regexPattern = str_replace(['\*', '\?'], ['.*', '.'], $regexPattern);
-
-        foreach ($delimiters as $delimiter) {
-            $quotedDelimiter = preg_quote($delimiter, '/');
-            $regexPattern = str_replace($quotedDelimiter, "[{$regexDelimiters}]", $regexPattern);
-        }
+        // Reemplazar \* por .* (wildcard → regex)
+        $regexPattern = str_replace('\*', '.*', $regexPattern);
 
         return (bool)preg_match("/^{$regexPattern}$/", $permission);
     }
@@ -141,12 +134,12 @@ class PermissionManager
 
     private function getUserCacheKey(UserInterface $user, string $suffix): string
     {
-        return "user_{$user->getId()}_{$user->getTenantId()}_{$suffix}";
+        return "user_{$user->getId()}_{$suffix}";
     }
 
     private function clearUserCache(UserInterface $user): void
     {
-        $prefix = "user_{$user->getId()}_{$user->getTenantId()}_";
+        $prefix = "user_{$user->getId()}_";
 
         foreach (array_keys($this->cache) as $key) {
             if (str_starts_with($key, $prefix)) {

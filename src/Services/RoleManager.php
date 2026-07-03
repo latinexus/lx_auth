@@ -29,7 +29,7 @@ class RoleManager
 
     public function assignRole(UserInterface $user, string $role): void
     {
-        $roleModel = $this->driver->findRoleBySlug($role, $user->getTenantId());
+        $roleModel = $this->driver->findRoleBySlug($role);
 
         if (!$roleModel) {
             throw new RoleException("El rol '{$role}' no existe");
@@ -44,7 +44,7 @@ class RoleManager
 
     public function removeRole(UserInterface $user, string $role): void
     {
-        $roleModel = $this->driver->findRoleBySlug($role, $user->getTenantId());
+        $roleModel = $this->driver->findRoleBySlug($role);
 
         if (!$roleModel) {
             throw new RoleException("El rol '{$role}' no existe");
@@ -80,12 +80,12 @@ class RoleManager
 
     private function getUserCacheKey(UserInterface $user, string $suffix): string
     {
-        return "user_{$user->getId()}_{$user->getTenantId()}_{$suffix}";
+        return "user_{$user->getId()}_{$suffix}";
     }
 
     private function clearUserCache(UserInterface $user): void
     {
-        $prefix = "user_{$user->getId()}_{$user->getTenantId()}_";
+        $prefix = "user_{$user->getId()}_";
 
         foreach (array_keys($this->cache) as $key) {
             if (str_starts_with($key, $prefix)) {
