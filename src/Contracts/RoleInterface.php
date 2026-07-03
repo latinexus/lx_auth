@@ -19,8 +19,6 @@ interface RoleInterface
 
     public function getName(): string;
 
-    public function getTenantId(): ?string;
-
     public function getPermissions(): array;
 
     public function hasPermission(string $permission): bool;

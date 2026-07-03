@@ -24,11 +24,6 @@ interface UserInterface
     public function getId(): int|string;
 
     /**
-     * Obtiene el ID del tenant
-     */
-    public function getTenantId(): ?string;
-
-    /**
      * Obtiene el email del usuario
      */
     public function getEmail(): string;

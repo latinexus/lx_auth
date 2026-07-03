@@ -16,11 +16,11 @@ namespace LxAuth\Contracts;
  */
 interface DriverInterface
 {
-    public function findUserById($id, string $tenantId): ?UserInterface;
+    public function findUserById($id): ?UserInterface;
 
-    public function findUserByCredentials(array $credentials, string $tenantId): ?UserInterface;
+    public function findUserByCredentials(array $credentials): ?UserInterface;
 
-    public function userExists(string $email, string $tenantId): bool;
+    public function userExists(string $email): bool;
 
     public function createUser(array $data): UserInterface;
 

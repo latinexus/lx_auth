@@ -21,8 +21,6 @@ interface PermissionInterface
 
     public function getDescription(): ?string;
 
-    public function getTenantId(): ?string;
-
     public function isWildcard(): bool;
 
     public function matches(string $permission): bool;
