@@ -13,7 +13,6 @@ namespace LxAuth\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Facades\Hash;
 use LxAuth\Contracts\UserInterface;
 use LxAuth\Contracts\RoleInterface;
 
@@ -25,7 +24,6 @@ class User extends Model implements UserInterface
     protected $table = 'users';
 
     protected $fillable = [
-        'tenant_id',
         'email',
         'password',
         'first_name',
@@ -51,13 +49,8 @@ class User extends Model implements UserInterface
     protected static function boot()
     {
         parent::boot();
-
-        // Hashear contraseña al crear/actualizar
-        static::saving(function ($user) {
-            if ($user->isDirty('password')) {
-                $user->password = Hash::make($user->password);
-            }
-        });
+        // Nota: El hasheo de contraseña se maneja via setPasswordAttribute mutator
+        // que es invocado por Eloquent automáticamente al asignar $model->password
     }
 
     /**
@@ -66,14 +59,6 @@ class User extends Model implements UserInterface
     public function getId(): int|string
     {
         return $this->getKey();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getTenantId(): ?string
-    {
-        return $this->tenant_id;
     }
 
     /**
@@ -110,12 +95,7 @@ class User extends Model implements UserInterface
      */
     public function getRoles(): array
     {
-        // Evitar cargar la relación automáticamente para prevenir recursión
-        if ($this->relationLoaded('roles')) {
-            return $this->roles->all();
-        }
-        
-        return [];
+        return $this->roles->all();
     }
 
     /**
@@ -147,7 +127,7 @@ class User extends Model implements UserInterface
      */
     public function updateLastLogin(): void
     {
-        $this->last_login = now();
+        $this->last_login = new \DateTime();
         $this->save();
     }
 
@@ -164,7 +144,7 @@ class User extends Model implements UserInterface
      */
     public function verifyPassword(string $password): bool
     {
-        return Hash::check($password, $this->password);
+        return password_verify($password, $this->password);
     }
 
     /**
@@ -212,17 +192,10 @@ class User extends Model implements UserInterface
 
 
     /**
-     * Scope para filtrar por tenant
+     * Relación con permisos directos (tabla pivote permission_user)
+     * Nota: nombre distincto de la columna JSON 'permissions' para evitar conflicto en Eloquent
      */
-    public function scopeForTenant($query, string $tenantId)
-    {
-        return $query->where('tenant_id', $tenantId);
-    }
-
-    /**
-     * Relación con permisos directos
-     */
-    public function permissions(): BelongsToMany
+    public function userPermissions(): BelongsToMany
     {
         return $this->belongsToMany(
             Permission::class,
@@ -250,16 +223,18 @@ class User extends Model implements UserInterface
     }
 
     /**
-     * Asignar contraseña (hasheada automáticamente)
+     * Hashea la contraseña automáticamente al asignarla.
+     * Usa password_hash() nativo de PHP, no requiere illuminate/events.
      */
     public function setPasswordAttribute(string $value): void
     {
-        // Usar el hash de manera segura si el facade está disponible
-        try {
-            $this->attributes['password'] = \Illuminate\Support\Facades\Hash::make($value);
-        } catch (\Exception $e) {
-            // Si el facade no está disponible, dejar la contraseña sin hashear por ahora
+        // Solo hashear si aún no está hasheada (evita doble hash)
+        if (!password_get_info($value)['algo']) {
+            $this->attributes['password'] = password_hash($value, PASSWORD_BCRYPT);
+        } else {
             $this->attributes['password'] = $value;
         }
     }
+
+
 }

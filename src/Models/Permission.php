@@ -20,7 +20,6 @@ class Permission extends Model implements PermissionInterface
     protected $table = 'permissions';
 
     protected $fillable = [
-        'tenant_id',
         'slug',
         'name',
         'description',
@@ -53,11 +52,6 @@ class Permission extends Model implements PermissionInterface
         return $this->description;
     }
 
-    public function getTenantId(): ?string
-    {
-        return $this->tenant_id;
-    }
-
     public function isWildcard(): bool
     {
         return (bool)$this->is_wildcard;
@@ -70,9 +64,10 @@ class Permission extends Model implements PermissionInterface
         }
 
         if ($this->is_wildcard) {
-            $pattern = str_replace(['*', '.'], ['.*', '\.'], $this->slug);
-            $pattern = '/^' . $pattern . '$/';
-            return (bool)preg_match($pattern, $permission);
+            // Escapar caracteres especiales primero, luego reemplazar \* por .*
+            $pattern = preg_quote($this->slug, '/');
+            $pattern = str_replace('\*', '.*', $pattern);
+            return (bool)preg_match('/^' . $pattern . '$/', $permission);
         }
 
         return false;
@@ -103,8 +98,4 @@ class Permission extends Model implements PermissionInterface
         )->withPivot('grant')->withTimestamps();
     }
 
-    public function scopeForTenant($query, string $tenantId)
-    {
-        return $query->where('tenant_id', $tenantId);
-    }
 }

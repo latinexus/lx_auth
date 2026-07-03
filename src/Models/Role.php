@@ -22,7 +22,6 @@ class Role extends Model implements RoleInterface
     protected $table = 'roles';
 
     protected $fillable = [
-        'tenant_id',
         'slug',
         'name',
         'description',
@@ -49,11 +48,6 @@ class Role extends Model implements RoleInterface
     public function getName(): string
     {
         return $this->name;
-    }
-
-    public function getTenantId(): ?string
-    {
-        return $this->tenant_id;
     }
 
     public function permissions(): BelongsToMany
@@ -126,8 +120,4 @@ class Role extends Model implements RoleInterface
         )->withTimestamps();
     }
 
-    public function scopeForTenant($query, string $tenantId)
-    {
-        return $query->where('tenant_id', $tenantId);
-    }
 }
