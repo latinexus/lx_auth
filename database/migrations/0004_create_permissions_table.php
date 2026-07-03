@@ -18,18 +18,15 @@ return new class extends Migration {
     {
         Capsule::schema()->create('permissions', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id')->default('system');
-            $table->string('slug');
+            $table->string('slug')->unique();
             $table->string('name');
             $table->text('description')->nullable();
             $table->boolean('is_system')->default(false);
             $table->boolean('is_wildcard')->default(false);
             $table->timestamps();
 
-            $table->unique(['tenant_id', 'slug']);
-            $table->index(['tenant_id', 'is_system']);
-            $table->index(['slug', 'is_wildcard']);
-            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->index('slug');
+            $table->index('is_wildcard');
         });
     }
 

@@ -18,7 +18,6 @@ return new class extends Migration {
     {
         Capsule::schema()->create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id');
             $table->string('slug')->unique();
             $table->string('name');
             $table->text('description')->nullable();
@@ -27,9 +26,8 @@ return new class extends Migration {
             $table->boolean('is_system')->default(false);
             $table->timestamps();
 
-            $table->index(['tenant_id', 'slug']);
-            $table->index(['tenant_id', 'level']);
-            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->index('slug');
+            $table->index('level');
             $table->foreign('parent_id')->references('id')->on('roles')->onDelete('set null');
         });
     }

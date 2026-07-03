@@ -18,8 +18,7 @@ return new class extends Migration {
     {
         Capsule::schema()->create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id');
-            $table->string('email');
+            $table->string('email')->unique();
             $table->string('password');
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
@@ -31,10 +30,7 @@ return new class extends Migration {
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['tenant_id', 'email']);
-            $table->index(['tenant_id', 'is_active']);
-            $table->index(['email', 'password']);
-            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->index(['email', 'is_active']);
         });
     }
 
