@@ -28,13 +28,13 @@ interface DatabaseDriverInterface extends DriverInterface
 
     public function createRole(array $data);
 
-    public function findRoleBySlug(string $slug, string $tenantId);
+    public function findRoleBySlug(string $slug);
 
     public function createPermission(array $data);
 
-    public function findPermissionBySlug(string $slug, string $tenantId);
+    public function findPermissionBySlug(string $slug);
 
     public function getPermissionsForUser(UserInterface $user): array;
 
-    public function getAllPermissions(string $tenantId): array;
+    public function getAllPermissions(): array;
 }

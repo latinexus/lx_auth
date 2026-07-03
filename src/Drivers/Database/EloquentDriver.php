@@ -16,7 +16,6 @@ use LxAuth\Contracts\UserInterface;
 use LxAuth\Models\User;
 use LxAuth\Models\Role;
 use LxAuth\Models\Permission;
-use LxAuth\Models\Tenant;
 
 class EloquentDriver implements DatabaseDriverInterface
 {
@@ -84,27 +83,23 @@ class EloquentDriver implements DatabaseDriverInterface
 
     // ========== USER METHODS ==========
 
-    public function findUserById($id, string $tenantId): ?UserInterface
+    public function findUserById($id): ?UserInterface
     {
-        return User::forTenant($tenantId)->find($id);
+        return User::find($id);
     }
 
-    public function findUserByCredentials(array $credentials, string $tenantId): ?UserInterface
+    public function findUserByCredentials(array $credentials): ?UserInterface
     {
         if (empty($credentials['email'])) {
             return null;
         }
 
-        return User::forTenant($tenantId)
-            ->where('email', $credentials['email'])
-            ->first();
+        return User::where('email', $credentials['email'])->first();
     }
 
-    public function userExists(string $email, string $tenantId): bool
+    public function userExists(string $email): bool
     {
-        return User::forTenant($tenantId)
-            ->where('email', $email)
-            ->exists();
+        return User::where('email', $email)->exists();
     }
 
     public function createUser(array $data): UserInterface
@@ -128,7 +123,7 @@ class EloquentDriver implements DatabaseDriverInterface
         }
 
         $user->roles()->detach();
-        $user->permissions()->detach();
+        $user->userPermissions()->detach();
 
         return (bool)$user->delete();
     }
@@ -139,7 +134,7 @@ class EloquentDriver implements DatabaseDriverInterface
             throw new \InvalidArgumentException('User debe ser instancia de LxAuth\\Models\\User');
         }
 
-        $roleModel = $this->findRoleBySlug($role, $user->getTenantId());
+        $roleModel = $this->findRoleBySlug($role);
         if (!$roleModel) {
             return false;
         }
@@ -154,7 +149,7 @@ class EloquentDriver implements DatabaseDriverInterface
             throw new \InvalidArgumentException('User debe ser instancia de LxAuth\\Models\\User');
         }
 
-        $roleModel = $this->findRoleBySlug($role, $user->getTenantId());
+        $roleModel = $this->findRoleBySlug($role);
         if (!$roleModel) {
             return false;
         }
@@ -179,11 +174,9 @@ class EloquentDriver implements DatabaseDriverInterface
         return Role::create($data);
     }
 
-    public function findRoleBySlug(string $slug, string $tenantId)
+    public function findRoleBySlug(string $slug)
     {
-        return Role::forTenant($tenantId)
-            ->where('slug', $slug)
-            ->first();
+        return Role::where('slug', $slug)->first();
     }
 
     // ========== PERMISSION METHODS ==========
@@ -193,11 +186,9 @@ class EloquentDriver implements DatabaseDriverInterface
         return Permission::create($data);
     }
 
-    public function findPermissionBySlug(string $slug, string $tenantId)
+    public function findPermissionBySlug(string $slug)
     {
-        return Permission::forTenant($tenantId)
-            ->where('slug', $slug)
-            ->first();
+        return Permission::where('slug', $slug)->first();
     }
 
     public function getPermissionsForUser(UserInterface $user): array
@@ -210,8 +201,8 @@ class EloquentDriver implements DatabaseDriverInterface
         }
 
         // Permisos desde tabla pivote
-        if (method_exists($user, 'permissions')) {
-            foreach ($user->permissions as $permission) {
+        if (method_exists($user, 'userPermissions')) {
+            foreach ($user->userPermissions as $permission) {
                 if ($permission instanceof Permission) {
                     $permissions[$permission->getSlug()] = (bool)($permission->pivot->grant ?? true);
                 }
@@ -232,26 +223,9 @@ class EloquentDriver implements DatabaseDriverInterface
         return $permissions;
     }
 
-    public function getAllPermissions(string $tenantId): array
+    public function getAllPermissions(): array
     {
-        return Permission::forTenant($tenantId)->get()->all();
-    }
-
-    // ========== TENANT METHODS ==========
-
-    public function findTenantById(string $id): ?Tenant
-    {
-        return Tenant::find($id);
-    }
-
-    public function findTenantByDomain(string $domain): ?Tenant
-    {
-        return Tenant::where('domain', $domain)->first();
-    }
-
-    public function createTenant(array $data): Tenant
-    {
-        return Tenant::create($data);
+        return Permission::all()->all();
     }
 
     // ========== HELPER METHODS ==========

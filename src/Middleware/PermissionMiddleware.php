@@ -9,7 +9,6 @@
  */
 
 
-
 namespace LxAuth\Middleware;
 
 use Psr\Http\Message\ResponseInterface;
@@ -19,15 +18,17 @@ use Psr\Http\Server\RequestHandlerInterface;
 use LxAuth\LxAuth;
 use LxAuth\Exceptions\PermissionDeniedException;
 
-class RoleMiddleware implements MiddlewareInterface
+class PermissionMiddleware implements MiddlewareInterface
 {
     private LxAuth $auth;
-    private string $role;
+    private string $permission;
+    private ?array $context;
 
-    public function __construct(LxAuth $auth, string $role)
+    public function __construct(LxAuth $auth, string $permission, ?array $context = null)
     {
         $this->auth = $auth;
-        $this->role = $role;
+        $this->permission = $permission;
+        $this->context = $context;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -38,8 +39,8 @@ class RoleMiddleware implements MiddlewareInterface
             throw new PermissionDeniedException('Usuario no autenticado');
         }
 
-        if (!$this->auth->hasRole($this->role)) {
-            throw new PermissionDeniedException("Requiere el rol: {$this->role}");
+        if (!$this->auth->can($this->permission, $this->context)) {
+            throw new PermissionDeniedException("Permiso denegado: {$this->permission}");
         }
 
         return $handler->handle($request);
