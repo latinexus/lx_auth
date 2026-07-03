@@ -16,14 +16,12 @@ use LxAuth\Contracts\RoleInterface;
 use LxAuth\Services\AuthManager;
 use LxAuth\Services\RoleManager;
 use LxAuth\Services\PermissionManager;
-use LxAuth\Services\TenantResolver;
 use LxAuth\Drivers\Database\EloquentDriver;
 use LxAuth\Exceptions\AuthenticationException;
 use LxAuth\Exceptions\PermissionDeniedException;
 use LxAuth\Middleware\Authenticate;
 use LxAuth\Middleware\PermissionMiddleware;
 use LxAuth\Middleware\RoleMiddleware;
-use LxAuth\Middleware\TenantMiddleware;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Container\ContainerInterface;
 
@@ -37,7 +35,6 @@ class LxAuth
     private AuthManager $authManager;
     private RoleManager $roleManager;
     private PermissionManager $permissionManager;
-    private TenantResolver $tenantResolver;
     private array $config;
     private ?ContainerInterface $container = null;
 
@@ -71,16 +68,16 @@ class LxAuth
         // Inicializar driver de base de datos
         $driver = $this->createDriver();
 
+        // Fusionar config de auth con tokens y session para AuthManager
+        $authConfig = array_merge($this->config['auth'], [
+            'tokens' => $this->config['tokens'] ?? [],
+            'session' => $this->config['session'] ?? [],
+        ]);
+
         // Inicializar servicios
-        $this->tenantResolver = new TenantResolver($this->config['tenancy']);
-        $this->authManager = new AuthManager($driver, $this->config['auth']);
+        $this->authManager = new AuthManager($driver, $authConfig);
         $this->roleManager = new RoleManager($driver, $this->config['roles']);
         $this->permissionManager = new PermissionManager($driver, $this->config['permissions']);
-
-        // Establecer tenant por defecto si existe
-        if (isset($this->config['tenancy']['default_tenant_id'])) {
-            $this->tenantResolver->setDefaultTenant($this->config['tenancy']['default_tenant_id']);
-        }
     }
 
     /**
@@ -109,10 +106,8 @@ class LxAuth
         $defaults = [
             'defaults' => [
                 'driver' => 'eloquent',
-                'tenant_resolver' => 'subdomain',
             ],
             'auth' => [
-                'model' => Models\User::class,
                 'password_hash' => 'bcrypt',
                 'require_activation' => false,
                 'throttling' => [
@@ -121,20 +116,12 @@ class LxAuth
                     'lockout_time' => 300,
                 ],
             ],
-            'tenancy' => [
-                'model' => Models\Tenant::class,
-                'resolver' => 'subdomain',
-                'resolvers' => [],
-                'default_tenant_id' => null,
-            ],
             'roles' => [
-                'model' => Models\Role::class,
                 'hierarchical' => true,
                 'cache_enabled' => true,
                 'cache_ttl' => 3600,
             ],
             'permissions' => [
-                'model' => Models\Permission::class,
                 'wildcard_enabled' => true,
                 'cache_enabled' => true,
                 'cache_ttl' => 3600,
@@ -162,25 +149,17 @@ class LxAuth
     /**
      * Autentica un usuario con credenciales
      */
-    public function authenticate(array $credentials, ?string $tenantId = null): ?UserInterface
+    public function authenticate(array $credentials): ?UserInterface
     {
-        if ($tenantId === null) {
-            $tenantId = $this->tenantResolver->resolve();
-        }
-
-        return $this->authManager->authenticate($credentials, $tenantId);
+        return $this->authManager->authenticate($credentials);
     }
 
     /**
      * Registra un nuevo usuario
      */
-    public function register(array $data, ?string $tenantId = null): UserInterface
+    public function register(array $data): UserInterface
     {
-        if ($tenantId === null) {
-            $tenantId = $this->tenantResolver->resolve();
-        }
-
-        return $this->authManager->register($data, $tenantId);
+        return $this->authManager->register($data);
     }
 
     /**
@@ -282,30 +261,6 @@ class LxAuth
     }
 
     /**
-     * Middleware de tenant
-     */
-    public function tenantMiddleware(): TenantMiddleware
-    {
-        return new TenantMiddleware($this->tenantResolver);
-    }
-
-    /**
-     * Obtiene el tenant actual
-     */
-    public function tenant(): ?string
-    {
-        return $this->tenantResolver->resolve();
-    }
-
-    /**
-     * Establece el tenant actual
-     */
-    public function setTenant(string $tenantId): void
-    {
-        $this->tenantResolver->setCurrentTenant($tenantId);
-    }
-
-    /**
      * Obtiene la configuración
      */
     public function getConfig(): array
@@ -335,14 +290,6 @@ class LxAuth
     public function getPermissionManager(): PermissionManager
     {
         return $this->permissionManager;
-    }
-
-    /**
-     * Obtiene el resolvedor de tenants
-     */
-    public function getTenantResolver(): TenantResolver
-    {
-        return $this->tenantResolver;
     }
 
     /**

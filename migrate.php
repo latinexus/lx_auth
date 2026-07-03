@@ -45,7 +45,6 @@ class Migrator
     private function loadMigrations(): void
     {
         $this->migrations = [
-            '0001_create_tenants_table',
             '0002_create_users_table',
             '0003_create_roles_table',
             '0004_create_permissions_table',
@@ -135,33 +134,22 @@ class Migrator
     {
         // Extraer el nombre de la tabla del nombre de la migración
         if (preg_match('/create_(.+)_table/', $migration, $matches)) {
-            return str_replace('_', '', $matches[1]);
+            // Convertir snake_case a PascalCase
+            // ej: 'role_user' → 'RoleUser'
+            $name = str_replace('_', ' ', $matches[1]);
+            $name = ucwords($name);
+            return str_replace(' ', '', $name);
         }
         return 'unknown';
     }
 
     // ========== MÉTODOS DE MIGRACIÓN ==========
 
-    private function createTenants(): void
-    {
-        $this->capsule->schema()->create('tenants', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->string('name');
-            $table->string('domain')->nullable()->unique();
-            $table->json('config')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-            $table->softDeletes();
-            $table->index(['domain', 'is_active']);
-        });
-    }
-
     private function createUsers(): void
     {
         $this->capsule->schema()->create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id');
-            $table->string('email');
+            $table->string('email')->unique();
             $table->string('password');
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
@@ -172,11 +160,7 @@ class Migrator
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
-
-            $table->unique(['tenant_id', 'email']);
-            $table->index(['tenant_id', 'is_active']);
-            $table->index(['email', 'password']);
-            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->index(['email', 'is_active']);
         });
     }
 
@@ -184,7 +168,6 @@ class Migrator
     {
         $this->capsule->schema()->create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id');
             $table->string('slug')->unique();
             $table->string('name');
             $table->text('description')->nullable();
@@ -192,10 +175,8 @@ class Migrator
             $table->integer('level')->default(0);
             $table->boolean('is_system')->default(false);
             $table->timestamps();
-
-            $table->index(['tenant_id', 'slug']);
-            $table->index(['tenant_id', 'level']);
-            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->index('slug');
+            $table->index('level');
             $table->foreign('parent_id')->references('id')->on('roles')->onDelete('set null');
         });
     }
@@ -204,18 +185,14 @@ class Migrator
     {
         $this->capsule->schema()->create('permissions', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id')->default('system');
-            $table->string('slug');
+            $table->string('slug')->unique();
             $table->string('name');
             $table->text('description')->nullable();
             $table->boolean('is_system')->default(false);
             $table->boolean('is_wildcard')->default(false);
             $table->timestamps();
-
-            $table->unique(['tenant_id', 'slug']);
-            $table->index(['tenant_id', 'is_system']);
-            $table->index(['slug', 'is_wildcard']);
-            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->index('slug');
+            $table->index('is_wildcard');
         });
     }
 
